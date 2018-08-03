@@ -12,7 +12,7 @@ const PORT = 3000;
 const MONGO_URL = 'mongodb://localhost:27017/workflow';
 
 export const workflow = async () => {
-    // try {
+    try {
         const client = await MongoClient.connect(MONGO_URL, { useNewUrlParser: true });
         const db = client.db('workflow');
         const Boards = db.collection('Boards');
@@ -56,6 +56,7 @@ export const workflow = async () => {
                 boards(user: String): [Board]
                 lists(boardId: String): [List]
                 cards(listId: String): [Card]
+                auth(userId: String, password: String): User
             }
 
             type Mutation {
@@ -80,6 +81,11 @@ export const workflow = async () => {
                 },
                 cards: async (root, {listId}) => {
                     return await Cards.find({listId: listId}).toArray();
+                },
+                auth: async (root, {userId, password}) => {
+                    let res = await Users.findOne({userId: userId, password: password}, { projection : {password: 0 }});
+                    console.log('login res=' + JSON.stringify(res));
+                    return res;                   
                 }
             },
             Mutation: {
@@ -129,8 +135,8 @@ export const workflow = async () => {
         app.listen(PORT, () => {
             console.log('Server active on' + URL + ':' + PORT);
         });
-    // }
-    // catch(error) {
-    //     console.log('Error-' + JSON.stringify(error));
-    // }
+    }
+    catch(error) {
+        console.log('Error-' + JSON.stringify(error));
+    }
 }
