@@ -63,6 +63,10 @@ export const workflow = async () => {
                 createBoard(boardName: String, user: String): Board
                 createList(listName: String, boardId: String): List
                 createCard(cardData: String, listId: String): Card
+                updateCard(cardData: String, cardId: String): Card
+                deleteBoard(boardId: String): Board
+                deleteList(listId: String): List
+                deleteCard(cardId: String): Card
             }
 
             schema {
@@ -115,6 +119,22 @@ export const workflow = async () => {
                     };
                     const res = await Cards.insert(newCard);
                     return await Cards.findOne({_id: res.insertedIds["0"]});
+                },
+                updateCard: async (root, args) => {
+                    const res = await Cards.findOneAndUpdate({cardId: args.cardId}, { $set : {cardData: args.cardData}});
+                    return res.value;
+                },
+                deleteBoard: async (root, args) => {
+                    const res = await Boards.findOneAndDelete({boardId: args.boardId});
+                    return res.value;
+                },
+                deleteList: async (root, args) => {
+                    const res = await Lists.findOneAndDelete({listId: args.listId});
+                    return res.value;
+                },
+                deleteCard: async (root, args) => {
+                    const res = await Cards.findOneAndDelete({cardId: cardId});
+                    return res.value;
                 }
             }
         };
