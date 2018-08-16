@@ -19,6 +19,7 @@ export const workflow = async () => {
         const Lists = db.collection('Lists');
         const Cards = db.collection('Cards');
         const Users = db.collection('Users');
+        const Cookies = db.collection('Cookies');
 
         const typeDefs = [`
             type Board {
@@ -52,11 +53,17 @@ export const workflow = async () => {
                 createdAt: String
             }
 
+            type Cookie {
+                userId: String
+                token: String
+                expires: String
+            }
+
             type Query {
                 boards(user: String): [Board]
                 lists(boardId: String): [List]
                 cards(listId: String): [Card]
-                auth(userId: String, password: String): User
+                auth(userId: String, password: String, rememberMe: Boolean): User
             }
 
             type Mutation {
@@ -77,20 +84,33 @@ export const workflow = async () => {
 
         const resolvers = {
             Query: {
-                boards: async (root, {user}) => {
-                    return await Boards.find({user: user}).toArray();
+                boards: async (root, { user }) => {
+                    return await Boards.find({ user: user }).toArray();
                 },
-                lists: async (root, {boardId}) => {
-                    return await Lists.find({boardId: boardId}).toArray();
+                lists: async (root, { boardId }) => {
+                    return await Lists.find({ boardId: boardId }).toArray();
                 },
-                cards: async (root, {listId}) => {
-                    return await Cards.find({listId: listId}).toArray();
+                cards: async (root, { listId }) => {
+                    return await Cards.find({ listId: listId }).toArray();
                 },
-                auth: async (root, {userId, password}) => {
-                    let res = await Users.findOne({userId: userId, password: password}, { projection : {password: 0 }});
-                    console.log('login res=' + JSON.stringify(res));
-                    return res;                   
+                auth: async (root, { userId, password, rememberMe }) => {
+                    console.log('req body=' + rememberMe);
+                    if (rememberMe) {
+                        let now = new Date();
+                        let time = now.getTime();
+                        let expireTime = time + 1000 * 36000;
+                        now.setTime(expireTime);
+                        let cookie = {
+                            token: uuidv4(),
+                            userId: userId,
+                            expires : now.toGMTString()
+                        }
+                        let res = Cookies.insertOne(cookie);
+                    }
+                    let res = await Users.findOne({ userId: userId, password: password }, { projection: { password: 0 } });
+                    return res;
                 }
+
             },
             Mutation: {
                 createBoard: async (root, args, context, info) => {
@@ -100,7 +120,7 @@ export const workflow = async () => {
                         boardId: uuidv4()
                     }
                     const res = await Boards.insert(newBoard);
-                    return await Boards.findOne({_id: res.insertedIds["0"]})
+                    return await Boards.findOne({ _id: res.insertedIds["0"] })
                 },
                 createList: async (root, args) => {
                     let newList = {
@@ -109,7 +129,7 @@ export const workflow = async () => {
                         listId: uuidv4()
                     };
                     const res = await Lists.insert(newList);
-                    return await Lists.findOne({_id: res.insertedIds["0"]});
+                    return await Lists.findOne({ _id: res.insertedIds["0"] });
                 },
                 createCard: async (root, args) => {
                     let newCard = {
@@ -118,22 +138,22 @@ export const workflow = async () => {
                         cardId: uuidv4()
                     };
                     const res = await Cards.insert(newCard);
-                    return await Cards.findOne({_id: res.insertedIds["0"]});
+                    return await Cards.findOne({ _id: res.insertedIds["0"] });
                 },
                 updateCard: async (root, args) => {
-                    const res = await Cards.findOneAndUpdate({cardId: args.cardId}, { $set : {cardData: args.cardData}});
+                    const res = await Cards.findOneAndUpdate({ cardId: args.cardId }, { $set: { cardData: args.cardData } });
                     return res.value;
                 },
                 deleteBoard: async (root, args) => {
-                    const res = await Boards.findOneAndDelete({boardId: args.boardId});
+                    const res = await Boards.findOneAndDelete({ boardId: args.boardId });
                     return res.value;
                 },
                 deleteList: async (root, args) => {
-                    const res = await Lists.findOneAndDelete({listId: args.listId});
+                    const res = await Lists.findOneAndDelete({ listId: args.listId });
                     return res.value;
                 },
                 deleteCard: async (root, args) => {
-                    const res = await Cards.findOneAndDelete({cardId: cardId});
+                    const res = await Cards.findOneAndDelete({ cardId: cardId });
                     return res.value;
                 }
             }
@@ -147,7 +167,7 @@ export const workflow = async () => {
         const app = express();
         app.use(cors());
 
-        app.use('/graphql', bodyParser.json(), graphqlExpress({schema}));
+        app.use('/graphql', bodyParser.json(), graphqlExpress({ schema }));
         app.use('/graphiql', graphiqlExpress({
             endpointURL: '/graphql'
         }));
@@ -156,7 +176,7 @@ export const workflow = async () => {
             console.log('Server active on' + URL + ':' + PORT);
         });
     }
-    catch(error) {
+    catch (error) {
         console.log('Error-' + JSON.stringify(error));
     }
 }
